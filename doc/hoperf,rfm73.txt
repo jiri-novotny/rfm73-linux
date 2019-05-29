@@ -1,0 +1,36 @@
+* HopeRF RFM73
+
+This is a standalone RF IC with SPI interface.
+
+Required properties:
+- compatible: Should be "hoperf,rfm73"
+- reg: Specify the SPI chip select the module is wired to
+- pinctrl-names: List of assigned state names, see pinctrl binding documentation.
+- pinctrl-0: List of phandles to configure the GPIO pin used as interrupt line,
+             see also generic and your platform specific pinctrl binding
+             documentation.
+- rfm73,irq: a phandle to the interrupt GPIO
+- rfm73,ce: a phandle to the module enable GPIO
+
+Optional properties:
+- spi-max-frequency: Maximum frequency of the SPI bus when accessing the module.
+  According to the RFM73 datasheet, the module allows a maximum of 8 MHz, however,
+  board designs may need to limit this value.
+
+Example:
+
+  &spi2 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&spi2_pins_a>, <&spi2_cs0_pins_a>;
+    status = "okay";
+
+    #address-cells = <1>;
+    #size-cells = <0>;
+    radio@0 {
+      reg = <0>;
+      compatible = "hoperf,rfm73";
+      spi-max-frequency = <8000000>;
+      rfm73,irq = <&pio 1 10 GPIO_ACTIVE_LOW>; /* PB10 */
+      rfm73,ce = <&pio 6 12 GPIO_ACTIVE_HIGH>; /* PG12 */
+    };
+  };
