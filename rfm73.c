@@ -347,6 +347,10 @@ static ssize_t rfm73_initialize(struct rfm73_data *rfm73)
     /* switch to bank1 */
     rfm73_cmd(rfm73, ACTIVATE, tmp, 1, NULL);
   }
+
+  rfm73_readRegs(rfm73, 0x08, 4); /* read chip id */
+  if (0x63 != (rfm73->recv[0]))
+    return -ENODEV;
   
   /* init bank1 */
   for (tmp = 0; tmp < BANK1_ENTRIES; tmp++)
@@ -559,16 +563,14 @@ static int rfm73_probe(struct spi_device *spi)
   if (spi->irq < 0)
   {
     dev_err(&spi->dev,"Invalid irq for gpio-irq.\n");
-    status = -ENXIO;
-    goto gpio;
+    return -ENXIO;
   }
   if (gpio_is_valid(gpioCe))
   {
     if (devm_gpio_request_one(&spi->dev, gpioCe, GPIOF_OUT_INIT_LOW, "rfm73 ce"))
     {
       dev_err(&spi->dev, "gpio ce request failed.\n");
-      status = -ENXIO;
-      goto gpio;
+      return -ENXIO;
     }
   }
 
@@ -577,8 +579,7 @@ static int rfm73_probe(struct spi_device *spi)
   if (!dev)
   {
     dev_err(&spi->dev,"Allocate net dev failed.\n");
-    status = -ENOMEM;
-    goto gpio1;
+    return -ENOMEM;
   }
   rfm73 = netdev_priv(dev);
 
@@ -599,8 +600,7 @@ static int rfm73_probe(struct spi_device *spi)
 
   if (spi == NULL)
   {
-    status = -ESHUTDOWN;
-    goto mem;
+    return -ESHUTDOWN;
   }
 
   status = spi_setup(spi);
@@ -619,18 +619,17 @@ static int rfm73_probe(struct spi_device *spi)
 
   INIT_WORK(&rfm73->irq_work, rfm73_irq_work_handler);
   INIT_WORK(&rfm73->tx_work, rfm73_tx_work_handler);
-  rfm73_initialize(rfm73);
-  status = register_netdev(dev);
+  status = rfm73_initialize(rfm73);
+  if (status != 0)
+  {
+    dev_err(&spi->dev,"RFM73 not found\n");
+  }
+  else
+  {
+    status = register_netdev(dev);
+    dev_info(&spi->dev,"RFM Version 1.4\n");
+  }
 
-  dev_warn(&spi->dev,"RFM Version 1\n");
-
-  return status;
-mem:
-  free_netdev(dev);
-gpio1:
-  devm_gpio_free(&spi->dev, gpioCe);
-gpio:
-  devm_gpio_free(&spi->dev, gpioIrq);
   return status;
 }
 
