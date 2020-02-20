@@ -1,7 +1,7 @@
 /*
- * Simple network device driver for STM S2-LP the SPI rf devices
+ * Simple network device driver for HopeRF RFM73 the SPI RF devices
  *
- * Copyright (C) 2018 Logic Elements s.r.o.
+ * Copyright (C) 2018-2020 Logic Elements s.r.o.
  *  Jiri Novotny <jiri.novotny@logicelements.cz>
  *
  * Based on: Simple network device driver for nrf24l01+ the SPI rf devices
@@ -62,7 +62,7 @@ struct rfm73_data {
   /* gpios */
   int ceGpio;
   int irqGpio;
-  
+
   /* Packets awaiting transmission */
   struct sk_buff *tx_skb;
   struct work_struct tx_work;
@@ -90,7 +90,7 @@ static uint8_t Bank1_Reg0_13[BANK1_ENTRIES][4] = {
   {0xC0, 0x4B, 0x00, 0x00}, /* 1 */
   {0xD0, 0xFC, 0x8C, 0x02}, /* 2 */
   {0x99, 0x00, 0x39, 0x41}, /* 3 */
-  {0xD9, 0x9E, 0x86, 0x0B}, /* 4 {0xD9,0x96,0x82,0x1B}, enable high sen, no low power*/
+  {0xD9, 0xB6, 0x82, 0x1B}, /* 4 {0xD9,0x96,0x82,0x1B}, enable high sen, no low power*/
   {0x24, 0x06, 0x7F, 0xA6}, /* 5 rssi {0x24, 0x02, 0x7F, 0xA6} */
   {0x00, 0x00, 0x00, 0x00}, /* 6 */
   {0x00, 0x00, 0x00, 0x00}, /* 7 */
@@ -353,11 +353,11 @@ static ssize_t rfm73_initialize(struct rfm73_data *rfm73)
     return -ENODEV;
   
   /* init bank1 */
-  for (tmp = 0; tmp < BANK1_ENTRIES; tmp++)
+  for (tmp = 0; tmp < 14; tmp++)
   {
     rfm73_writeRegs(rfm73, tmp, Bank1_Reg0_13[tmp], 4);
   }
-  rfm73_writeRegs(rfm73, tmp, Bank1_Reg14, 11);
+  rfm73_writeRegs(rfm73, 0x0e, Bank1_Reg14, 11);
   
   /* toggle to bank 0 */
   tmp = 0x53;
@@ -622,12 +622,17 @@ static int rfm73_probe(struct spi_device *spi)
   status = rfm73_initialize(rfm73);
   if (status != 0)
   {
-    dev_err(&spi->dev,"RFM73 not found\n");
+    dev_err(&spi->dev,"RFM73 error (%d)\n", status);
+    free_netdev(rfm73->dev);
+    rfm73->spi = NULL;
+    spi_set_drvdata(spi, NULL);
+    devm_gpio_free(&spi->dev, rfm73->irqGpio);
+    devm_gpio_free(&spi->dev, rfm73->ceGpio);
   }
   else
   {
     status = register_netdev(dev);
-    dev_info(&spi->dev,"RFM Version 1.4\n");
+    dev_info(&spi->dev,"RFM Version 1.5\n");
   }
 
   return status;
