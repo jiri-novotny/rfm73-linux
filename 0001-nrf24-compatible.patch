@@ -1,0 +1,116 @@
+diff --git a/rfm73.c b/rfm73.c
+index 1b26bdb..00e144b 100644
+--- a/rfm73.c
++++ b/rfm73.c
+@@ -85,27 +85,6 @@ struct rfm73_data {
+   int lastLen;
+ };
+ 
+-static uint8_t Bank1_Reg0_13[BANK1_ENTRIES][4] = {
+-  {0x40, 0x4B, 0x01, 0xE2}, /* 0 */
+-  {0xC0, 0x4B, 0x00, 0x00}, /* 1 */
+-  {0xD0, 0xFC, 0x8C, 0x02}, /* 2 */
+-  {0x99, 0x00, 0x39, 0x41}, /* 3 */
+-  {0xD9, 0xB6, 0x82, 0x1B}, /* 4 {0xD9,0x96,0x82,0x1B}, enable high sen, no low power*/
+-  {0x24, 0x06, 0x7F, 0xA6}, /* 5 rssi {0x24, 0x02, 0x7F, 0xA6} */
+-  {0x00, 0x00, 0x00, 0x00}, /* 6 */
+-  {0x00, 0x00, 0x00, 0x00}, /* 7 */
+-  {0x00, 0x00, 0x00, 0x00}, /* 8 */
+-  {0x00, 0x00, 0x00, 0x00}, /* 9 */
+-  {0x00, 0x00, 0x00, 0x00}, /* A */
+-  {0x00, 0x00, 0x00, 0x00}, /* B */
+-  {0x00, 0x12, 0x73, 0x05}, /* C */
+-  {0x36, 0xB4, 0x80, 0x00}  /* D */
+-};
+-
+-
+-static uint8_t Bank1_Reg14[] = {0x41,0x10,0x04,0x82,0x20,0x08,0x08,0xF2,0x7D,0xEF,0xFF};
+-/*static const uint8_t Bank1_Reg14[] = {0x41,0x20,0x08,0x04,0x81,0x20,0xCF,0xF7,0xFE,0xFF,0xFF}; */
+-
+ /* ------------------------------------------------------------------------- */
+ 
+ static ssize_t rfm73_initialize(struct rfm73_data *rfm73);
+@@ -338,51 +317,12 @@ static void rfm73_irq_work_handler(struct work_struct *work)
+ 
+ static ssize_t rfm73_initialize(struct rfm73_data *rfm73)
+ {
+-  uint8_t tmp = 0x53;
+-
+-  rfm73_readRegs(rfm73, STATUS, 1);
+-  /* check actual bank */
+-  if (0 == (rfm73->recv[0] & 0x80))
+-  {
+-    /* switch to bank1 */
+-    rfm73_cmd(rfm73, ACTIVATE, tmp, 1, NULL);
+-  }
+-
+-  rfm73_readRegs(rfm73, 0x08, 4); /* read chip id */
+-  if (0x63 != (rfm73->recv[0]))
+-    return -ENODEV;
+-  
+-  /* init bank1 */
+-  for (tmp = 0; tmp < 14; tmp++)
+-  {
+-    rfm73_writeRegs(rfm73, tmp, Bank1_Reg0_13[tmp], 4);
+-  }
+-  rfm73_writeRegs(rfm73, 0x0e, Bank1_Reg14, 11);
+-  
+-  /* toggle to bank 0 */
+-  tmp = 0x53;
+-  rfm73_cmd(rfm73, ACTIVATE, tmp, 1, NULL);
+-  
+-  rfm73_writeReg(rfm73, FEATURE, 0x01);
+-  rfm73_readRegs(rfm73, FEATURE, 1);
+-  if (0 == rfm73->recv[0])
+-  {
+-    tmp = 0x73;
+-    rfm73_cmd(rfm73, ACTIVATE, tmp, 1, NULL);
+-  }
+-  
+-  rfm73_writeReg(rfm73, CONFIG, DEVICE_RX);
+   rfm73_writeReg(rfm73, EN_RXADDR, 0x0F);
+   rfm73_writeReg(rfm73, SETUP_AW, 0x02);
+   rfm73_writeReg(rfm73, SETUP_RETR, 0x20);
+-  rfm73_writeReg(rfm73, RF_CH, 0x00);
+-  rfm73_writeReg(rfm73, RF_SETUP, 0x27);
+-  /*
++  rfm73_writeReg(rfm73, RF_CH, 83);
++  rfm73_writeReg(rfm73, RF_SETUP, 0x26);
+   rfm73_writeReg(rfm73, STATUS, 0x70);
+-  rfm73_writeReg(rfm73, OBSERVE_TX, 0x00);
+-  rfm73_writeReg(rfm73, CD, 0x00);
+-  rfm73_writeReg(rfm73, FIFO_STATUS, 0x00);
+-  */
+ #if EN_DYN_PL
+   rfm73_writeReg(rfm73, EN_AA, 0x0F);
+   rfm73_writeReg(rfm73, DYNPD, 0x0F);
+@@ -396,6 +336,8 @@ static ssize_t rfm73_initialize(struct rfm73_data *rfm73)
+   rfm73_writeReg(rfm73, RX_PW_P3, rfm73->payloadLen);
+ #endif
+ 
++  rfm73_writeReg(rfm73, CONFIG, DEVICE_RX);
++
+   return 0;
+ }
+ 
+@@ -632,7 +574,7 @@ static int rfm73_probe(struct spi_device *spi)
+   else
+   {
+     status = register_netdev(dev);
+-    dev_info(&spi->dev,"RFM Version 1.5\n");
++    dev_info(&spi->dev,"RFM Version 2.0\n");
+   }
+ 
+   return status;
+diff --git a/rfm73.h b/rfm73.h
+index ab8a02d..a24e65a 100644
+--- a/rfm73.h
++++ b/rfm73.h
+@@ -15,7 +15,6 @@
+ #define FLUSH_TX              0xE1
+ #define FLUSH_RX              0xE2
+ #define REUSE_TX_PL           0xE3
+-#define ACTIVATE              0x50
+ #define R_RX_PL_WID           0x60
+ #define W_ACK_PAYLOAD         0xA8
+ #define W_TX_PAYLOAD_NOACK    0xB0
